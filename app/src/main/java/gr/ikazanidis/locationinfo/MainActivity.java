@@ -17,15 +17,17 @@ import android.widget.Toast;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationListener;
+import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.tasks.OnSuccessListener;
 
 import java.util.Locale;
 
 
 public class MainActivity extends AppCompatActivity implements GoogleApiClient.ConnectionCallbacks,
-        GoogleApiClient.OnConnectionFailedListener, LocationListener {
+        GoogleApiClient.OnConnectionFailedListener {
     private String TAG = "Test";
 
     GoogleApiClient mGoogleApiClient;
@@ -34,8 +36,9 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     public static final long FASTEST_UPDATE_INTERVAL_IN_MILLISECONDS = UPDATE_INTERVAL_IN_MILLISECONDS / 2;
     protected boolean mRequestingLocationUpdates;
     protected LocationRequest mLocationRequest;
-    private TextView tv;
     private FusedLocationProviderClient mFusedLocationClient;
+    private LocationCallback mLocationCallback;
+    private TextView tv;
 
 
     @Override
@@ -48,6 +51,20 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
         tv = findViewById(R.id.latlon);
         mFusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
+
+        mLocationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (locationResult == null) {
+                    return;
+                }
+                for (Location location : locationResult.getLocations()) {
+                    // Update UI with location data
+                    mLastLocation = location;
+                    tv.setText(String.format(Locale.getDefault(), "%f,%f", mLastLocation.getLatitude(), mLastLocation.getLongitude()));
+                }
+            };
+        };
 
 
         //Location
@@ -107,8 +124,20 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
             return  ;
         }
         else {
-            mLastLocation = LocationServices.FusedLocationApi.getLastLocation(
-                    mGoogleApiClient);
+            //mLastLocation = LocationServices.FusedLocationApi.getLastLocation(mGoogleApiClient);
+            mFusedLocationClient.getLastLocation()
+                    .addOnSuccessListener(this, new OnSuccessListener<Location>() {
+                        @Override
+                        public void onSuccess(Location location) {
+                            // Got last known location. In some rare situations this can be null.
+                            if (location != null) {
+                                // Logic to handle location object
+                                mLastLocation = location;
+                                tv.setText(String.format(Locale.getDefault(), "Last location %f,%f", mLastLocation.getLatitude(), mLastLocation.getLongitude()));
+
+                            }
+                        }
+                    });
 
             if (mRequestingLocationUpdates) {
                 startLocationUpdates();
@@ -134,27 +163,20 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     protected void startLocationUpdates() {
         if ( Build.VERSION.SDK_INT >= 23 &&
                 ContextCompat.checkSelfPermission( this, android.Manifest.permission.ACCESS_FINE_LOCATION ) != PackageManager.PERMISSION_GRANTED) {
-            permissionsRequest()  ;
+            return  ;
         }
         else {
-            LocationServices.FusedLocationApi.requestLocationUpdates(
-                    mGoogleApiClient, mLocationRequest, this);
+                        mFusedLocationClient.requestLocationUpdates(mLocationRequest,
+                    mLocationCallback,
+                    null /* Looper */);
         }
     }
-
-    @Override
-    public void onLocationChanged(Location location) {
-        mLastLocation = location;
-        tv.setText(String.format(Locale.getDefault(), "%f,%f", mLastLocation.getLatitude(), mLastLocation.getLongitude()));
-    }
-
-
 
     @Override
     public void onStart() {
         super.onStart();
-        Log.e(TAG, "onStart");
-        mGoogleApiClient.connect();
+        //Log.e(TAG, "onStart");
+        //mGoogleApiClient.connect();
     }
 
     @Override
@@ -164,17 +186,18 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
     }
 
     protected void stopLocationUpdates() {
-        LocationServices.FusedLocationApi.removeLocationUpdates(
-                mGoogleApiClient, this);
+        //LocationServices.FusedLocationApi.removeLocationUpdates(mGoogleApiClient, this);
+        mFusedLocationClient.removeLocationUpdates(mLocationCallback);
     }
 
     @Override
-    public void onResume() {
+    protected void onResume() {
         super.onResume();
-        if (mGoogleApiClient.isConnected() && !mRequestingLocationUpdates) {
+        if (mRequestingLocationUpdates) {
             startLocationUpdates();
         }
     }
+
 
     @Override
     public void onStop() {
