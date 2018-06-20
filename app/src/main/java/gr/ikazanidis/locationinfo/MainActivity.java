@@ -110,7 +110,7 @@ public class MainActivity extends AppCompatActivity implements GoogleApiClient.C
 
     @Override
     public void onConnectionFailed(ConnectionResult arg0) {
-        Toast.makeText(this, "Failed to connect", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Failed to connect!", Toast.LENGTH_SHORT).show();
         Log.e(TAG, "Client NOT connected");
 
     }
